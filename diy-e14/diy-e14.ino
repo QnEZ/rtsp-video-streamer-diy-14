@@ -1,3 +1,5 @@
+
+
 /****************************************************************************************************************************************************
  *  TITLE: HOW TO BUILD A $9 RSTP VIDEO STREAMER: Using The ESP-32 CAM Board || Arduino IDE - DIY #14
  *  DESCRIPTION: This sketch creates a video streamer than uses RTSP. You can configure it to either connect to an existing WiFi network or to create
@@ -23,10 +25,24 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <WiFiClient.h>
+#include <UPnP_Generic.h>
 
 #include "src/SimStreamer.h"
 #include "src/OV2640Streamer.h"
 #include "src/CRtspSession.h"
+
+//Enable UPnP (Needed for global access)
+#define ENABLE_UPNP
+
+// UPnP_Generic - Settings required to setup
+// UPnP Port-Mapping for accessing globally
+#define RTSP_LISTEN_PORT         8554
+#define HTTP_LISTEN_PORT         8080
+#define LEASE_DURATION      36000                   // seconds
+#define FRIENDLY_NAME       ARDUINO_BOARD "-WIFI"   // this name will appear in your router port forwarding section
+
+// Valid UPNP Log Level values == 1-4
+#define _UPNP_LOGLEVEL_     3
 
 //#define ENABLE_OLED //if want use oled ,turn on thi macro
 //#define SOFTAP_MODE // If you want to run our own softap turn this on
@@ -51,14 +67,18 @@ bool hasDisplay; // we probe for the device at runtime
 
 #include "camera_pins.h"
 
+#ifdef ENABLE_UPNP
+UPnP* uPnP;
+#endif
+
 OV2640 cam;
 
 #ifdef ENABLE_WEBSERVER
-WebServer server(80);
+WebServer server(HTTP_LISTEN_PORT);
 #endif
 
 #ifdef ENABLE_RTSPSERVER
-WiFiServer rtspServer(8554);
+WiFiServer rtspServer(RTSP_LISTEN_PORT);
 #endif
 
 
@@ -207,7 +227,9 @@ void setup()
 
         Serial.print("Stream Link: rtsp://");
         Serial.print(ip);
-        Serial.println(":8554/mjpeg/1");
+        Serial.print(":");
+        Serial.print(RTSP_LISTEN_PORT);
+        Serial.println("/mjpeg/1");
     }
 #else
     lcdMessage(String("join ") + ssid);
@@ -218,13 +240,68 @@ void setup()
         delay(500);
         Serial.print(F("."));
     }
+    Serial.println();
+    IPAddress localIP = WiFi.localIP();
+    
     ip = WiFi.localIP();
     Serial.println(F("WiFi connected"));
     Serial.println("");
     Serial.println(ip);
     Serial.print("Stream Link: rtsp://");
     Serial.print(ip);
-    Serial.println(":8554/mjpeg/1");
+    Serial.print(":");
+    Serial.print(RTSP_LISTEN_PORT);
+    Serial.println("/mjpeg/1");
+
+  uPnP = new UPnP(30000);  // -1 means blocking, preferably, use a timeout value (ms)
+    
+  if (uPnP)
+  {
+    uPnP->addPortMappingConfig(localIP, RTSP_LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
+
+    bool portMappingAdded = false;
+
+  #define RETRY_TIMES     4
+    int retries = 0;
+
+    while (!portMappingAdded && (retries < RETRY_TIMES))
+    {
+      Serial.println("Add Port Forwarding, Try # " + String(++retries));
+
+      int result = uPnP->commitPortMappings();
+
+      portMappingAdded = ( (result == PORT_MAP_SUCCESS) || (result == ALREADY_MAPPED) );
+
+      if (portMappingAdded)
+      {
+        Serial.println("commitPortMappings result =" + String(result));
+      }
+
+      if (!portMappingAdded)
+      {
+        // for debugging, you can see this in your router too under forwarding or UPnP
+        //uPnP->printAllPortMappings();
+        Serial.println(F("This was printed because adding the required port mapping failed"));
+        if (retries < RETRY_TIMES)
+          delay(10000);  // 10 seconds before trying again
+      }
+    }
+
+    
+    Serial.println(F("\nUPnP done"));
+    }
+  
+ 
+  
+  Serial.print(F("HTTP WiFiWebServer is @ IP : "));
+  Serial.print(localIP); 
+  Serial.print(F(", port = "));
+  Serial.println(HTTP_LISTEN_PORT);
+
+  Serial.print(F("Gateway Address: "));
+  Serial.println(WiFi.gatewayIP());
+  Serial.print(F("Network Mask: "));
+  Serial.println(WiFi.subnetMask());
 #endif
 
     lcdMessage(ip.toString());
