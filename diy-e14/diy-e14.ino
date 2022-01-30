@@ -42,7 +42,7 @@
 #define FRIENDLY_NAME       ARDUINO_BOARD "-WIFI"   // this name will appear in your router port forwarding section
 
 // Valid UPNP Log Level values == 1-4
-#define _UPNP_LOGLEVEL_     3
+#define _UPNP_LOGLEVEL_     4
 
 //#define ENABLE_OLED //if want use oled ,turn on thi macro
 //#define SOFTAP_MODE // If you want to run our own softap turn this on
@@ -257,8 +257,14 @@ void setup()
     
   if (uPnP)
   {
-    uPnP->addPortMappingConfig(localIP, RTSP_LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
-
+    #ifdef ENABLE_RTSPSERVER
+      uPnP->addPortMappingConfig(localIP, RTSP_LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
+    #endif
+    
+    #ifdef ENABLE_WEBSERVER
+      uPnP->addPortMappingConfig(localIP, HTTP_LISTEN_PORT, RULE_PROTOCOL_TCP, LEASE_DURATION, FRIENDLY_NAME);
+    #endif
+    
     bool portMappingAdded = false;
 
   #define RETRY_TIMES     4
@@ -292,12 +298,13 @@ void setup()
     }
   
  
+  #ifdef ENABLE_WEBSERVER
+    Serial.print(F("HTTP WiFiWebServer is @ IP : "));
+    Serial.print(localIP); 
+    Serial.print(F(", port = "));
+    Serial.println(HTTP_LISTEN_PORT);
+  #endif
   
-  Serial.print(F("HTTP WiFiWebServer is @ IP : "));
-  Serial.print(localIP); 
-  Serial.print(F(", port = "));
-  Serial.println(HTTP_LISTEN_PORT);
-
   Serial.print(F("Gateway Address: "));
   Serial.println(WiFi.gatewayIP());
   Serial.print(F("Network Mask: "));
@@ -324,6 +331,10 @@ WiFiClient client; // FIXME, support multiple clients
 
 void loop()
 {
+#ifdef ENABLE_UPNP
+  uPnP->updatePortMappings(600000);  // 10 minutes
+#endif
+
 #ifdef ENABLE_WEBSERVER
     server.handleClient();
 #endif
