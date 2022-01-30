@@ -6,6 +6,9 @@ The purpose of this project is to add UPnP to the basic RTSP Example and later a
 - QnEZ Servers - https://qnez.net
 - Ocean County Scanner News - https://ocscanner.news
 
-#Original Project Readme
-## rtsp-video-streamer-diy-14
+## Acknowledgement
+This is a fork of www.github.com/bnbe-club/rtsp-video-streamer-diy-14
+
+## Original Project Readme
+### rtsp-video-streamer-diy-14
 YouTube Video: https://youtu.be/1xZ-0UGiUsY
